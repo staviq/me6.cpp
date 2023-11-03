@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"editor.formatOnSave": true,
+		"C_Cpp.clang_format_fallbackStyle": "LLVM"
+	}
+}
