@@ -1,0 +1,5 @@
+[submodule "llama.cpp"]
+	path = llama.cpp
+	url = https://github.com/staviq/llama.cpp.git
+	branch = me6.llama.cpp
+	shallow = true
