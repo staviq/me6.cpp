@@ -57,6 +57,28 @@ int main ( int argc, char** argv )
             }
           }
     } );
+    cmdlargs.arg ( {
+        "mdir",
+        { "-md", "--model-directory" },
+        "Directory containing .gguf models (Default: current directory).",
+        CmdlArgs::ReqDef::Optional,
+        { CmdlArgs::ReqDef::Required, CmdlArgs::TypDef::Text, "DIRECTORY" },
+        [] ( json& p )
+        {
+            if ( !p.contains ( "mdir" ) )
+            {
+                p["mdir"] = ".";
+            }
+          }
+    } );
+    cmdlargs.arg ( {
+        "model",
+        { "-m", "--model" },
+        "(Optional) Model file to pre-load on start.",
+        CmdlArgs::ReqDef::Optional,
+        { CmdlArgs::ReqDef::Required, CmdlArgs::TypDef::Text, "MODEL" },
+        [] ( json& p ) {}
+    } );
 
     try
     {
