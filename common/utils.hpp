@@ -1,5 +1,5 @@
-#ifndef ME6_CPP_UTILS_HPP
-#define ME6_CPP_UTILS_HPP
+#ifndef ME6_UTILS_HPP
+#define ME6_UTILS_HPP
 
 #include "libs.hpp"
 
@@ -28,7 +28,10 @@ namespace Me6
     {                                                                                                                                                          \
         static_cast< void > ( x );                                                                                                                             \
     }
-
+#define ME6_MARK                                                                                                                                               \
+    {                                                                                                                                                          \
+        memcpy ( stdin, stdin, 0 );                                                                                                                            \
+    }
 struct SrvHandlers
 {
     public:

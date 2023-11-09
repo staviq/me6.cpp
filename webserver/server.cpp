@@ -1,8 +1,10 @@
-#include "cmdlargs.hpp"
-#include "libs.hpp"
-#include "log.hpp"
+#include "common/cmdlargs.hpp"
+#include "common/libs.hpp"
+// #include "common/log.hpp"
+#include "common/utils.hpp"
 #include "public.hpp"
-#include "utils.hpp"
+
+#include "inference/inference.hpp"
 
 using namespace Me6;
 
@@ -95,7 +97,7 @@ int main ( int argc, char** argv )
     fprintf ( stderr, "CommandLine: %s\n", params.dump ( 1, '\t' ).c_str() );
 
 #ifndef LOG_DISABLE_LOGS
-    log_set_target ( log_filename_generator ( "me6", "log" ) );
+    ::log_set_target ( ::log_filename_generator ( "me6", "log" ) );
     LOG_TEE ( "Log start\n" );
     log_dump_cmdline ( argc, argv );
 #endif // LOG_DISABLE_LOGS
@@ -111,8 +113,8 @@ int main ( int argc, char** argv )
     srv.set_pre_routing_handler (
         [] ( const Request& req, Response& res )
         {
+            ME6_UNUSED ( req )
             ME6_UNUSED ( res )
-            /*LLREST_PRINT_REQUEST(req);*/
             static std::set< std::string > dbg_headers = { "Content-Type", "Content-Length", "REMOTE_ADDR", "User-Agent" };
             fprintf ( stderr, "R: %s\n\tM: '%s'\n", req.path.c_str(), req.method.c_str() );
             for ( const auto& h : req.headers )
@@ -152,32 +154,7 @@ int main ( int argc, char** argv )
         }
     );
 
-    // auto endpoint_index = [&]( const Request& req, Response& res )
-    // { res.set_content( std::string( ( const char* )index_html, index_html_len ), "text/html" ); };
-    // srv.Get( "/", endpoint_index );
-    // srv.Get( "/index.html", endpoint_index );
-
-    // for ( const auto& f : me6_embedded_files )
-    // {
-    //     const auto& fname = f.first;
-    //     const auto& fdata = f.second;
-    //     LOG_TEE ( "Ep auto %s\n", fname.c_str() );
-
-    //     auto endpoint_auto = [&] ( const Request& req, Response& res )
-    //     {
-    //         LOG_TEE ( "EP: %s\n", fdata.name.c_str() );
-    //         res.set_content ( std::string ( ( const char* )fdata.data, fdata.len ), fdata.mime );
-    //     };
-    //     srv.Get ( "/" + fdata.name, endpoint_auto );
-
-    //     if ( fname == "index.html" )
-    //     {
-    //         srv.Get ( "/", endpoint_auto );
-    //     }
-    // }
-
-    // std::string basedir = "public";
-    // srv.set_base_dir( basedir );
+    Inference inference ( cmdlargs, srv, uuid_generator );
 
     // clang-format off
     std::thread srv_t { [&](){

@@ -11,7 +11,7 @@
                     "PATH": "/opt/cuda/bin:${env:PATH}"
                 }
             },
-            "command": "( ( cd ${workspaceFolder} ) && ( make config=debug verbose=1 -j ) && exit 0 ) || exit 1"
+            "command": "( ( cd ${workspaceFolder} ) && ( premake5 gmake2 ) && ( make config=debug verbose=1 -j ) && exit 0 ) || exit 1"
         }
     ]
 }

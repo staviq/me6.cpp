@@ -10,10 +10,20 @@
             "request": "launch",
             "preLaunchTask": "build_sh",
             "program": "${workspaceFolder}/me6",
-            "args": [],
+            "args": [
+                "-md",
+                "/storage/models",
+                "-m",
+                "/storage/models/mistral-7b-openorca.Q8_0.gguf"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
+            "environment": [
+                // {
+                //     "name": "CUDA_VISIBLE_DEVICES",
+                //     "value": "1"
+                // }
+            ],
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [
