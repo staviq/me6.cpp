@@ -410,12 +410,14 @@ Inference::Inference ( CmdlArgs& cmdlargs, httplib::Server& srv, LLRestUuid& uui
 
             if ( result.first )
             {
-                response["result"] = result.second;
-                response["length"] = result.second.size();
+                response["result"] = result.second.str;
+                response["length"] = result.second.str.size();
+                response["tokens"] = result.second.t_cnt;
+                response["tspeed"] = result.second.tps;
             }
             else
             {
-                response["error"] += "Failed to tokenize.";
+                response["error"] += "Failed to tokenize: " + result.second.str;
                 response["length"] = 0;
             }
         }
@@ -428,12 +430,14 @@ Inference::Inference ( CmdlArgs& cmdlargs, httplib::Server& srv, LLRestUuid& uui
 
             if ( result.first )
             {
-                response["result"] = result.second;
-                response["length"] = result.second.size();
+                response["result"] = result.second.str;
+                response["length"] = result.second.str.size();
+                response["tokens"] = result.second.t_cnt;
+                response["tspeed"] = result.second.tps;
             }
             else
             {
-                response["error"] += "Failed to tokenize.";
+                response["error"] += "Failed to tokenize: " + result.second.str;
                 response["length"] = 0;
             }
         }
@@ -624,29 +628,25 @@ std::pair< bool, std::string > Inference::detokenize_unsafe ( json input )
     return { true, result };
 }
 
-std::pair< bool, std::string > Inference::completion_unsafe ( json input )
+std::pair< bool, Inference::Chunk > Inference::completion_unsafe ( json input )
 {
     if ( !_model || !_model->loaded() )
     {
         LOG_TEE ( "No model loaded.\n" );
-        return {
-            true, json ( {{ "error", "No model loaded." }}
-               )
-        };
+        return { false, { "No model loaded." } };
     }
     if ( !_context || !_context->created() )
     {
         LOG_TEE ( "No context created.\n" );
-        return {
-            true, json ( {{ "error", "No context created." }}
-               )
-        };
+        return { false, { "No context created." } };
     }
 
     //_context->save();
-    _context->restore();
+    //_context->restore();
 
     // context_create_unsafe();
+
+    static uint64_t n_past = 0;
 
     auto ctx   = _context->context();
     auto model = _model->model();
@@ -661,29 +661,35 @@ std::pair< bool, std::string > Inference::completion_unsafe ( json input )
 
     std::string result0;
 
+    bool continuation = prompt.empty();
+
     // tokenize prompt
-    auto tokens = llama_tokenize ( ctx, prompt, true );
+    std::vector< llama_token > tokens;
+    if ( !continuation )
+    {
+        tokens = llama_tokenize ( ctx, prompt, true, true );
+    }
 
-    n_len = tokens.size() + n_predict;
+    n_len = n_past + tokens.size() + n_predict;
 
-    auto start  = std::chrono::steady_clock::now();
-    int  tpscnt = 0;
+    int tpscnt = 0;
 
     // create a llama_batch
     // we use this object to submit token data for decoding
-    llama_batch batch = llama_batch_init ( std::max ( tokens.size(), ( size_t )n_parallel ), 0, 1 );
+    static llama_batch batch = llama_batch_init ( std::max ( tokens.size(), ( size_t )n_parallel ), 0, 1 );
+    llama_batch_clear ( batch );
 
     // evaluate the initial prompt
     for ( size_t i = 0; i < tokens.size(); ++i )
     {
-        llama_batch_add ( batch, tokens[i], i, { 0 }, false );
+        llama_batch_add ( batch, tokens[i], n_past + i, { 0 }, false );
     }
     // GGML_ASSERT(batch.n_tokens == (int) tokens_list.size());
 
     // llama_decode will output logits only for the last token of the prompt
-    batch.logits[batch.n_tokens - 1] = true;
+    batch.logits[n_past + batch.n_tokens - 1] = true;
 
-    if ( llama_decode ( ctx, batch ) != 0 )
+    if ( !continuation && llama_decode ( ctx, batch ) != 0 )
     {
         LOG_TEE ( "%s: llama_decode() failed\n", __func__ );
         // return 1;
@@ -704,19 +710,22 @@ std::pair< bool, std::string > Inference::completion_unsafe ( json input )
     // main loop
 
     // we will store the parallel decoded sequences in this vector
-    std::vector< std::string > streams ( n_parallel );
+    // std::vector< std::string > streams ( n_parallel );
+    std::vector< Chunk > streams ( n_parallel );
 
     // remember the batch index of the last token for each parallel sequence
     // we need this to determine which logits to sample from
-    std::vector< int32_t > i_batch ( n_parallel, batch.n_tokens - 1 );
+    static std::vector< int32_t > i_batch ( n_parallel, n_past + batch.n_tokens - 1 );
 
-    int n_cur    = batch.n_tokens;
+    int n_cur    = n_past + batch.n_tokens;
     int n_decode = 0;
 
     const auto t_main_start = ggml_time_us();
 
     while ( n_cur <= n_len )
     {
+        auto start = std::chrono::steady_clock::now();
+
         // prepare the next batch
         llama_batch_clear ( batch );
 
@@ -726,6 +735,9 @@ std::pair< bool, std::string > Inference::completion_unsafe ( json input )
             if ( i_batch[i] < 0 )
             {
                 // the stream has already finished
+                // auto  end   = std::chrono::steady_clock::now();
+                // float timer = std::chrono::duration_cast< std::chrono::milliseconds > ( end - start ).count();
+                // LOG_TEE ( "T: %f\n", timer / 1000.0 );
                 continue;
             }
 
@@ -757,24 +769,27 @@ std::pair< bool, std::string > Inference::completion_unsafe ( json input )
             // is it an end of stream? -> mark the stream as finished
             if ( new_token_id == llama_token_eos ( model ) || n_cur == n_len )
             {
-                i_batch[i] = -1;
+                // i_batch[i] = -1;
                 LOG_TEE ( "\n" );
                 if ( n_parallel > 1 )
                 {
                     LOG_TEE ( "%s: stream %d finished at n_cur = %d", __func__, i, n_cur );
                 }
 
+                // auto  end   = std::chrono::steady_clock::now();
+                // float timer = std::chrono::duration_cast< std::chrono::milliseconds > ( end - start ).count();
+                // LOG_TEE ( "T: %f\n", timer / 1000.0 );
                 continue;
             }
 
             // if there is only one stream, we print immediately to stdout
             if ( n_parallel == 1 )
             {
-                LOG_TEE ( "%s", llama_token_to_piece ( ctx, new_token_id ).c_str() );
-                fflush ( stdout );
+                // LOG_TEE ( "%s\n", llama_token_to_piece ( ctx, new_token_id ).c_str() );
+                // fflush ( stdout );
             }
 
-            streams[i] += llama_token_to_piece ( ctx, new_token_id );
+            streams[i].str += llama_token_to_piece ( ctx, new_token_id );
 
             i_batch[i] = batch.n_tokens;
 
@@ -787,17 +802,28 @@ std::pair< bool, std::string > Inference::completion_unsafe ( json input )
         // all streams are finished
         if ( batch.n_tokens == 0 )
         {
+            // auto  end   = std::chrono::steady_clock::now();
+            // float timer = std::chrono::duration_cast< std::chrono::milliseconds > ( end - start ).count();
+            // LOG_TEE ( "T: %f\n", timer / 1000.0 );
             break;
         }
 
         n_cur += 1;
 
         // evaluate the current batch with the transformer model
+        // auto dstart = std::chrono::steady_clock::now();
         if ( llama_decode ( ctx, batch ) )
         {
             fprintf ( stderr, "%s : failed to eval, return code %d\n", __func__, 1 );
             // return 1;
         }
+        // auto  dend   = std::chrono::steady_clock::now();
+        // float dtimer = std::chrono::duration_cast< std::chrono::milliseconds > ( dend - dstart ).count();
+        // LOG_TEE ( "DT: %f\n", dtimer / 1000.0 );
+
+        // auto  end   = std::chrono::steady_clock::now();
+        // float timer = std::chrono::duration_cast< std::chrono::milliseconds > ( end - start ).count();
+        // LOG_TEE ( "TT: %f\n", timer / 1000.0 );
     }
 
     LOG_TEE ( "\n" );
@@ -808,7 +834,7 @@ std::pair< bool, std::string > Inference::completion_unsafe ( json input )
 
         for ( int32_t i = 0; i < n_parallel; ++i )
         {
-            LOG_TEE ( "sequence %d:\n\n%s%s\n\n", i, prompt.c_str(), streams[i].c_str() );
+            LOG_TEE ( "sequence %d:\n\n%s%s\n\n", i, prompt.c_str(), streams[i].str.c_str() );
         }
     }
 
@@ -819,6 +845,11 @@ std::pair< bool, std::string > Inference::completion_unsafe ( json input )
         n_decode / ( ( t_main_end - t_main_start ) / 1000000.0f )
     );
 
+    streams[0].t_cnt = n_decode;
+    streams[0].tps   = n_decode / ( ( t_main_end - t_main_start ) / 1000000.0f );
+
+    n_past += n_decode;
+
     //_context->restore();
 
     static bool once = false;
@@ -826,10 +857,18 @@ std::pair< bool, std::string > Inference::completion_unsafe ( json input )
     if ( !once )
     {
         // once = true;
-        _context->save();
+        //_context->save();
+    }
+    try
+    {
+        return { true, streams[0] };
+    }
+    catch ( std::exception& e )
+    {
+        LOG_TEE ( "E %s", e.what() );
     }
 
-    return { true, json ( streams[0] ) };
+    return { false, { "wtf" } };
 }
 
 } // namespace Me6

@@ -100,6 +100,25 @@ class Inference
         Inference ( CmdlArgs& cmdlargs, httplib::Server& srv, LLRestUuid& uuid_generator );
         ~Inference() {}
 
+    public:
+        struct Chunk
+        {
+            public:
+                std::string str;
+                int64_t     t_cnt;
+                float       tps;
+
+            public:
+                operator json() const
+                {
+                    return json ( {
+                        {  "str",   str},
+                        {"t_cnt", t_cnt},
+                        {  "tps",   tps}
+                    } );
+                }
+        };
+
     private:
         Inference ( Inference& other )      = delete;
         void operator= ( const Inference& ) = delete;
@@ -147,7 +166,7 @@ class Inference
             return detokenize_unsafe ( input );
         }
 
-        std::pair< bool, std::string > completion ( json input )
+        std::pair< bool, Chunk > completion ( json input )
         {
             const std::lock_guard< std::mutex > lock ( _busy );
             return completion_unsafe ( input );
@@ -164,7 +183,7 @@ class Inference
         std::pair< bool, json >        tokenize_unsafe ( json input );
         std::pair< bool, json >        tokenize_raw_unsafe ( json input );
         std::pair< bool, std::string > detokenize_unsafe ( json input );
-        std::pair< bool, std::string > completion_unsafe ( json input );
+        std::pair< bool, Chunk >       completion_unsafe ( json input );
 
     private:
         std::mutex _busy;

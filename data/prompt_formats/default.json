@@ -1,0 +1,66 @@
+{
+    "name": "Default",
+    "prompt_formats": {
+        "Mistral OpenOrca": {
+            "system": {
+                "prefix": [
+                    {
+                        "tokenize": "raw",
+                        "text": "\n<|im_start|>"
+                    }
+                ],
+                "suffix": [
+                    {
+                        "tokenize": "raw",
+                        "text": "\n<|im_end|>\n"
+                    }
+                ]
+            },
+            "system_consecutive": {
+                "use": "system"
+            },
+            "user": {
+                "prefix": [
+                    {
+                        "tokenize": "raw",
+                        "text": "\n<|im_start|>user\n"
+                    }
+                ],
+                "suffix": [
+                    {
+                        "tokenize": "raw",
+                        "text": "\n<|im_end|>\n"
+                    }
+                ]
+            },
+            "bot": {
+                "prefix": [
+                    {
+                        "tokenize": "raw",
+                        "text": "\n<|im_start|>assistant\n"
+                    }
+                ],
+                "suffix": [
+                    {
+                        "tokenize": "raw",
+                        "text": "\n<|im_end|>\n"
+                    }
+                ]
+            },
+            "custom": {
+                "prefix": [
+                    {
+                        "tokenize": "raw",
+                        "text": "\n<|im_start|>{{role}}\n"
+                    }
+                ],
+                "suffix": [
+                    {
+                        "tokenize": "raw",
+                        "text": "\n<|im_end|>\n"
+                    }
+                ]
+            }
+        }
+    }
+}

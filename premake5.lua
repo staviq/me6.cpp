@@ -30,8 +30,8 @@ project "server"
 		filter {"system:linux", "configurations:Debug"}
 			toolset ("gcc")
 			prebuildcommands {
-				--"cd llama.cpp && ( ( ( mkdir build_debug || true ) && cd build_debug && echo cleanbuild && echo pwd $$(pwd) && cmake .. -DCMAKE_BUILD_TYPE=Debug -DLLAMA_STATIC=OFF -DBUILD_SHARED_LIBS=ON -DLLAMA_CUBLAS=ON -DLLAMA_NATIVE=ON -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF && cmake --build . --config Debug -j ) || ( cd build_debug && echo rebuild && echo pwd $$(pwd) && cmake --build . --config Debug -j ) )"
-				"cd llama.cpp && ( mkdir build_debug || true ) && cd build_debug && echo llamabuild && echo pwd $$(pwd) && cmake .. -DCMAKE_BUILD_TYPE=Debug -DLLAMA_STATIC=ON -DLLAMA_CUBLAS=ON -DLLAMA_NATIVE=ON -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF && cmake --build . --config Debug -j"
+				-- "cd llama.cpp && ( mkdir build_debug || true ) && cd build_debug && echo llamabuild && echo pwd $$(pwd) && cmake .. -DCMAKE_BUILD_TYPE=Debug -DLLAMA_STATIC=ON -DLLAMA_CUBLAS=ON -DLLAMA_NATIVE=ON -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF && cmake --build . --config Debug -j"
+				"cd llama.cpp && ( mkdir build_release || true ) && cd build_release && echo llamabuild && echo pwd $$(pwd) && cmake .. -DCMAKE_BUILD_TYPE=Release -DLLAMA_STATIC=ON -DLLAMA_CUBLAS=ON -DLLAMA_NATIVE=ON -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_SERVER=OFF && cmake --build . --config Release -j"
 			}
 			defines { "GGML_USE_CUBLAS" }
 			symbols "On"
@@ -44,7 +44,7 @@ project "server"
 			--links { "llama:static", "ggml_static:static", "common:static", "cublas", "cuda", "culibos", "cudart", "cublasLt", "pthread", "dl", "rt", "asan" }
 			links { "llama:static", "ggml_static:static", "common:static", "cublas", "cuda", "culibos", "cudart", "cublasLt", "pthread", "dl", "rt" }
 			--libdirs { "llama.cpp/build_debug", "llama.cpp/build_debug/common", os.findlib("cublas"), os.findlib("cuda"), os.findlib("asan") }
-			libdirs { "llama.cpp/build_debug", "llama.cpp/build_debug/common", os.findlib("cublas"), os.findlib("cuda") }
+			libdirs { "llama.cpp/build_release", "llama.cpp/build_release/common", os.findlib("cublas"), os.findlib("cuda") }
 		filter {"system:linux", "configurations:Release"}
 			prebuildcommands {
 				"( cd llama.cpp && echo pwd $$(pwd) && make LLAMA_CUBLAS=1 libllama.so -j )"

@@ -154,8 +154,6 @@ int main ( int argc, char** argv )
         }
     );
 
-    Inference inference ( cmdlargs, srv, uuid_generator );
-
     // clang-format off
     std::thread srv_t { [&](){
 		try {
@@ -167,6 +165,8 @@ int main ( int argc, char** argv )
 		}
     } };
     // clang-format on
+
+    Inference inference ( cmdlargs, srv, uuid_generator );
 
     if ( srv_t.joinable() )
     {
